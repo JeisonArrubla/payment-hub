@@ -1,0 +1,25 @@
+flowchart TD
+    subgraph External ["Sistemas Externos (Fuera del Alcance)"]
+        Merchant["🛒 Comercio E-commerce\n(Tienda Afiliada)"]
+        Bank["🏦 Pasarela de Pago / Banco\n(Entidad Externa)"]
+    end
+
+    subgraph System ["Sistema PaymentHub (Límite Arquitectónico)"]
+        Facade["1. Fachada de Integración\n(API Facade / Gateway)"]
+        Risk["2. Motor de Evaluación\nde Riesgo Crediticio"]
+        Tx["3. Gestor de Crédito\ny Transacciones"]
+        Recaudo["4. Servicio de Recaudo\ny Plan de Pagos"]
+    end
+
+    Merchant -->|1. Solicitud de crédito BNPL| Facade
+    Facade -->|2. Validar datos & Solicitar scoring| Risk
+    Risk -->|3. Veredicto: Aprobado + Cupo| Tx
+    Tx -->|4. Confirmación de crédito & Desembolso| Merchant
+    Tx -->|5. Estructura de cuotas & Pagaré| Recaudo
+    Recaudo -->|6. Ejecución de débitos automáticos| Bank
+
+    %% Estilos visuales
+    classDef ext fill:#f4f5fb,stroke:#54566b,stroke-width:2px,color:#1f2233;
+    classDef sys fill:#e8f4f8,stroke:#1a2a6c,stroke-width:2px,color:#0d1b4c;
+    class Merchant,Bank ext;
+    class Facade,Risk,Tx,Recaudo sys;
