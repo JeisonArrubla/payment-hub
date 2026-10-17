@@ -1,31 +1,61 @@
 flowchart TD
     subgraph Sistemas_Externos ["Sistemas Externos (Fuera de Alcance)"]
-        Merchant["🛒 Comercio E-commerce\n(Tienda Afiliada)"]
-        Bank["🏦 Pasarela de Pago / Banco\n(Entidad Externa)"]
+        Merchant["🛒 Comercio E-commerce<br/>(Tienda Afiliada)"]
+        Bureau["📊 Central de Riesgo Externo<br/>(Buró de Crédito)"]
+        Bank["🏦 Pasarela de Pago / Banco<br/>(Entidad Externa)"]
+        SMS["📱 Proveedor SMS Externo"]
     end
 
-    subgraph PaymentHub_System ["Límite Arquitectónico: PaymentHub"]
-        Facade["1. Fachada de Integración\n(API Facade / Gateway)"]
-        Risk["2. Motor de Evaluación\nde Riesgo Crediticio"]
-        Tx["3. Gestor de Transacciones\ny Crédito"]
-        Lifecycle["4. Gestor del Ciclo de Vida\ndel Crédito"]
-        Recaudo["5. Servicio de Recaudo"]
-        Notif["6. Sistema de Notificaciones"]
+    subgraph PaymentHub_System ["Límite Arquitectónico: PaymentHub (Arquitectura por Capas)"]
+        
+        subgraph Layer1 ["Capa 1: Integración y Presentación (Integration Layer)"]
+            Facade["1. Fachada de Integración<br/>(API Facade / Gateway)"]
+        end
+
+        subgraph Layer2 ["Capa 2: Lógica de Negocio y Dominio (Business Layer)"]
+            Risk["2. Motor de Evaluación<br/>de Riesgo Crediticio"]
+            Tx["3. Gestor de Transacciones<br/>y Crédito"]
+            Lifecycle["4. Gestor del Ciclo de Vida<br/>del Crédito"]
+            Recaudo["5. Servicio de Recaudo<br/>(Worker / Scheduler)"]
+        end
+
+        subgraph Layer3 ["Capa 3: Persistencia y Acceso a Datos (Data Access Layer - DAL)"]
+            DAL["6. Repositorio y Gestor de<br/>Persistencia Relacional (SQL / ACID)"]
+        end
+
+        subgraph Layer4 ["Capa 4: Infraestructura y Servicios Auxiliares (Infrastructure Layer)"]
+            Adapter["7. Adaptador de Integraciones<br/>Externas (Clients REST)"]
+            Notif["8. Sistema de Notificaciones"]
+        end
+
     end
 
-    Merchant -->|1. Solicitud de crédito BNPL| Facade
-    Facade -->|2. Autentica & Solicita Scoring| Risk
-    Risk -->|3. Veredicto: Aprobado + Cupo| Tx
-    Tx -->|4. Registro de deuda & Pagaré| Lifecycle
-    Tx -->|5. Confirmación de desembolso| Merchant
-    Lifecycle -->|6. Plan de pagos programado| Recaudo
-    Recaudo -->|7. Orden de débito recurrente| Bank
-    Risk -.->|Notifica resultado| Notif
-    Recaudo -.->|Notifica cobros/recordatorios| Notif
-    Notif -.->|SMS| Merchant
+    %% --- FLUJOS DE COMUNICACIÓN ---
+    
+    %% 1. Checkout y Evaluación Síncrona
+    Merchant -->|1. Solicitud síncrona de crédito BNPL| Facade
+    Facade -->|2. Invocación en memoria: Autentica & Solicita Scoring| Risk
+    
+    %% Consulta Externa a Centrales de Riesgo
+    Risk -->|"3. Consulta síncrona HTTPS<br/>(Timeout 1.8s)"| Adapter
+    Adapter -->|4. Petición API REST| Bureau
+    Bureau -.->|5. Respuesta Score| Adapter
+    Adapter -.->|6. Veredicto Scoring| Risk
+
+    %% Aprobación y Creación de Deuda
+    Risk -->|7. Veredicto: Aprobado + Cupo| Tx
+    Tx -->|8. Registro de deuda & Pagaré| Lifecycle
+    Lifecycle -->|"9. Persiste crédito & cuotas PENDIENTES"| DAL
+    Tx -->|10. Confirmación de desembolso| Merchant
+    
+    %% 2. Recaudo Asíncrono (En Segundo Plano)
+    Recaudo -.->|"11. Consulta cuotas vencidas "|s36
+    Recaudo -.->|"12. Orden de débito recurrente "|s37
+    Recaudo -.->|"13. Despacho SMS "|SMS
 
     %% Estilos visuales
     classDef ext fill:#f4f5fb,stroke:#54566b,stroke-width:2px,color:#1f2233;
     classDef sys fill:#e8f4f8,stroke:#1a2a6c,stroke-width:2px,color:#0d1b4c;
-    class Merchant,Bank ext;
-    class Facade,Risk,Tx,Lifecycle,Recaudo,Notif sys;
+    
+    class Merchant,Bureau,Bank,SMS ext;
+    class Facade,Risk,Tx,Lifecycle,Recaudo,DAL,Adapter,Notif sys;
