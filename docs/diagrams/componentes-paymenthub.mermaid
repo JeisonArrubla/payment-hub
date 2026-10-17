@@ -1,25 +1,31 @@
 flowchart TD
-    subgraph External ["Sistemas Externos (Fuera del Alcance)"]
+    subgraph Sistemas_Externos ["Sistemas Externos (Fuera de Alcance)"]
         Merchant["🛒 Comercio E-commerce\n(Tienda Afiliada)"]
         Bank["🏦 Pasarela de Pago / Banco\n(Entidad Externa)"]
     end
 
-    subgraph System ["Sistema PaymentHub (Límite Arquitectónico)"]
+    subgraph PaymentHub_System ["Límite Arquitectónico: PaymentHub"]
         Facade["1. Fachada de Integración\n(API Facade / Gateway)"]
         Risk["2. Motor de Evaluación\nde Riesgo Crediticio"]
-        Tx["3. Gestor de Crédito\ny Transacciones"]
-        Recaudo["4. Servicio de Recaudo\ny Plan de Pagos"]
+        Tx["3. Gestor de Transacciones\ny Crédito"]
+        Lifecycle["4. Gestor del Ciclo de Vida\ndel Crédito"]
+        Recaudo["5. Servicio de Recaudo"]
+        Notif["6. Sistema de Notificaciones"]
     end
 
     Merchant -->|1. Solicitud de crédito BNPL| Facade
-    Facade -->|2. Validar datos & Solicitar scoring| Risk
+    Facade -->|2. Autentica & Solicita Scoring| Risk
     Risk -->|3. Veredicto: Aprobado + Cupo| Tx
-    Tx -->|4. Confirmación de crédito & Desembolso| Merchant
-    Tx -->|5. Estructura de cuotas & Pagaré| Recaudo
-    Recaudo -->|6. Ejecución de débitos automáticos| Bank
+    Tx -->|4. Registro de deuda & Pagaré| Lifecycle
+    Tx -->|5. Confirmación de desembolso| Merchant
+    Lifecycle -->|6. Plan de pagos programado| Recaudo
+    Recaudo -->|7. Orden de débito recurrente| Bank
+    Risk -.->|Notifica resultado| Notif
+    Recaudo -.->|Notifica cobros/recordatorios| Notif
+    Notif -.->|SMS| Merchant
 
     %% Estilos visuales
     classDef ext fill:#f4f5fb,stroke:#54566b,stroke-width:2px,color:#1f2233;
     classDef sys fill:#e8f4f8,stroke:#1a2a6c,stroke-width:2px,color:#0d1b4c;
     class Merchant,Bank ext;
-    class Facade,Risk,Tx,Recaudo sys;
+    class Facade,Risk,Tx,Lifecycle,Recaudo,Notif sys;
